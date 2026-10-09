@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة طوبة ورقة مقص 🎮</title>
+    <!-- استخدام Tailwind CSS للتصميم السريع والمتجاوب -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- إعدادات Tailwind للوضع الداكن والألوان -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Tajawal', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        darkBg: '#111827',
+                        lightBg: '#F3F4F6'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* تأثير اهتزاز الأيدي قبل الكشف عن النتيجة */
+        @keyframes shakeLeft {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-20px) rotate(-10deg); }
+            50% { transform: translateY(0) rotate(0deg); }
+            75% { transform: translateY(-20px) rotate(-10deg); }
+        }
+        @keyframes shakeRight {
+            0%, 100% { transform: translateY(0) scaleX(-1) rotate(0deg); }
+            25% { transform: translateY(-20px) scaleX(-1) rotate(-10deg); }
+            50% { transform: translateY(0) scaleX(-1) rotate(0deg); }
+            75% { transform: translateY(-20px) scaleX(-1) rotate(-10deg); }
+        }
+
+        .anim-shake-left {
+            animation: shakeLeft 1s ease-in-out;
+        }
+        .anim-shake-right {
+            animation: shakeRight 1s ease-in-out;
+            transform: scaleX(-1); /* لقلب اليد للخصم */
+        }
+
+        /* تأثير ظهور النتيجة */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.5); }
+            70% { transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .anim-pop {
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .choice-btn {
+            transition: all 0.2s;
+        }
+        .choice-btn:hover:not(:disabled) {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .choice-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .disabled-btn {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        /* تحسين مظهر السكرول بار */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+    </style>
+</head>
+
+<body class="bg-lightBg text-gray-900 dark:bg-darkBg dark:text-white min-h-screen flex flex-col items-center">
+
+    <!-- شريط التحكم العلوي -->
+    <header class="w-full max-w-4xl p-4 flex justify-between items-center bg-white dark:bg-gray-800 shadow-md rounded-b-2xl z-10">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">
+            طوبة ورقة مقص 🎮
+        </h1>
+        <div class="flex gap-3">
+            <button id="soundBtn" class="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="الصوت">
+                🔊
+            </button>
+            <button id="themeBtn" class="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="الوضع الفاتح/الداكن">
+                🌙
+            </button>
+        </div>
+    </header>
+
+    <!-- الحاوية الرئيسية -->
+    <main class="flex-1 w-full max-w-4xl p-4 flex flex-col justify-center relative overflow-hidden">
+        
+        <!-- شاشة الإعدادات -->
+        <section id="menuScreen" class="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-3xl shadow-xl w-full max-w-lg mx-auto anim-pop">
+            <h2 class="text-2xl font-bold mb-6 text-center border-b pb-4 dark:border-gray-700">إعدادات اللعبة</h2>
+            
+            <div class="space-y-5">
+                <!-- وضع اللعب -->
+                <div>
+                    <label class="block mb-2 font-semibold">وضع اللعب:</label>
+                    <div class="flex gap-2">
+                        <button class="mode-select flex-1 py-2 px-4 rounded-xl border-2 border-primary bg-primary text-white font-bold transition" data-mode="pc">🤖 ضد الكمبيوتر</button>
+                        <button class="mode-select flex-1 py-2 px-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-primary transition" data-mode="friend">👥 ضد صديق</button>
+                    </div>
+                </div>
+
+                <!-- مستوى الصعوبة (يظهر فقط مع الكمبيوتر) -->
+                <div id="difficultySection">
+                    <label class="block mb-2 font-semibold">مستوى الصعوبة:</label>
+                    <select id="difficultySelect" class="w-full p-3 rounded-xl bg-gray-100 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary">
+                        <option value="easy">سهل (عشوائي بالكامل)</option>
+                        <option value="medium">متوسط (نصف ذكي)</option>
+                        <option value="hard">صعب (يحلل نمط لعبك)</option>
+                    </select>
+                </div>
+
+                <!-- نوع التحدي -->
+                <div>
+                    <label class="block mb-2 font-semibold">نوع التحدي:</label>
+                    <div class="flex gap-2">
+                        <button class="match-select flex-1 py-2 px-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-secondary transition" data-match="endless">♾️ مستمر</button>
+                        <button class="match-select flex-1 py-2 px-4 rounded-xl border-2 border-secondary bg-secondary text-white font-bold transition" data-match="best5">🏆 أفضل 5 جولات</button>
+                    </div>
+                </div>
+
+                <!-- المؤقت -->
+                <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-xl">
+                    <label class="font-semibold cursor-pointer" for="timerToggle">تفعيل المؤقت (5 ثوانٍ)</label>
+                    <input type="checkbox" id="timerToggle" class="w-6 h-6 accent-primary cursor-pointer">
+                </div>
+            </div>
+
+            <button id="startBtn" class="w-full mt-8 py-4 bg-gradient-to-r from-primary to-purple-600 hover:from-purple-600 hover:to-primary text-white text-xl font-bold rounded-2xl shadow-lg transform transition hover:-translate-y-1">
+                ابدأ اللعب 🚀
+            </button>
+
+            <!-- الإحصائيات -->
+            <div class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                إجمالي (فوز: <span id="statW" class="text-green-500 font-bold">0</span> | خسارة: <span id="statL" class="text-red-500 font-bold">0</span> | تعادل: <span id="statT" class="text-yellow-500 font-bold">0</span>)
+                <br><button id="resetStatsBtn" class="mt-2 text-xs underline hover:text-gray-800 dark:hover:text-white">تصفير الإحصائيات</button>
+            </div>
+        </section>
+
+        <!-- شاشة اللعب -->
+        <section id="gameScreen" class="hidden w-full h-full flex flex-col justify-between">
+            
+            <!-- معلومات الجولة والمؤقت -->
+            <div class="flex justify-between items-center mb-4 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm">
+                <div class="text-lg font-bold" id="roundInfoDisplay">جولة: 1</div>
+                <div id="timerDisplay" class="hidden text-2xl font-black text-red-500 bg-red-100 dark:bg-red-900/30 px-4 py-1 rounded-full">5</div>
+                <button id="backToMenuBtn" class="text-sm bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">العودة للقائمة</button>
+            </div>
+
+            <!-- ساحة العرض (اللاعب ضد الخصم) -->
+            <div class="flex-1 flex flex-col md:flex-row items-center justify-around my-4 bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-6 shadow-inner relative">
+                
+                <!-- اللاعب الأول -->
+                <div class="flex flex-col items-center z-10">
+                    <h3 id="p1Name" class="text-xl font-bold mb-2">أنت</h3>
+                    <div class="text-4xl font-black text-primary mb-4" id="p1Score">0</div>
+                    <div id="p1Hand" class="text-8xl md:text-9xl filter drop-shadow-xl transition-transform">✊</div>
+                </div>
+
+                <!-- فاصل 'ضد' ورسالة النتيجة -->
+                <div class="flex flex-col items-center justify-center my-8 md:my-0 z-20">
+                    <div class="text-2xl font-black text-gray-400 dark:text-gray-500 mb-2">VS</div>
+                    <div id="resultMessage" class="h-12 flex items-center justify-center text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500 text-center opacity-0 transition-opacity duration-300">
+                        استعد!
+                    </div>
+                </div>
+
+                <!-- الخصم (كمبيوتر أو صديق) -->
+                <div class="flex flex-col items-center z-10">
+                    <h3 id="p2Name" class="text-xl font-bold mb-2">الكمبيوتر</h3>
+                    <div class="text-4xl font-black text-red-500 mb-4" id="p2Score">0</div>
+                    <div id="p2Hand" class="text-8xl md:text-9xl filter drop-shadow-xl transform scale-x-[-1] transition-transform">✊</div>
+                </div>
+            </div>
+
+            <!-- أزرار الاختيار -->
+            <div class="mt-4 text-center">
+                <h4 id="turnIndicator" class="text-lg font-bold mb-4 text-primary">اختر حركتك:</h4>
+                <div class="flex justify-center gap-4 md:gap-8" id="choicesContainer">
+                    <button class="choice-btn text-6xl md:text-7xl bg-white dark:bg-gray-800 p-4 md:p-6 rounded-3xl shadow-lg border-b-4 border-gray-300 dark:border-gray-600" data-choice="rock">✊</button>
+                    <button class="choice-btn text-6xl md:text-7xl bg-white dark:bg-gray-800 p-4 md:p-6 rounded-3xl shadow-lg border-b-4 border-gray-300 dark:border-gray-600" data-choice="paper">✋</button>
+                    <button class="choice-btn text-6xl md:text-7xl bg-white dark:bg-gray-800 p-4 md:p-6 rounded-3xl shadow-lg border-b-4 border-gray-300 dark:border-gray-600" data-choice="scissors">✌️</button>
+                </div>
+                <!-- زر الجولة التالية (مخفي افتراضياً) -->
+                <button id="nextRoundBtn" class="hidden mx-auto mt-6 px-8 py-3 bg-secondary hover:bg-green-600 text-white font-bold rounded-xl shadow-md transition">الجولة التالية ➡️</button>
+            </div>
+        </section>
+
+        <!-- شاشة تمرير الجهاز (للعب مع صديق) -->
+        <div id="passDeviceScreen" class="hidden absolute inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col items-center justify-center p-6 text-center anim-pop">
+            <div class="text-6xl mb-6">🤝</div>
+            <h2 class="text-3xl font-bold mb-4">دور اللاعب الثاني</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-8">قم بتمرير الجهاز لصديقك ولا تدعه يرى اختيارك!</p>
+            <button id="readyP2Btn" class="px-8 py-4 bg-primary text-white text-xl font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition">
+                أنا مستعد، لنلعب! 👀
+            </button>
+        </div>
+
+        <!-- شاشة نهاية التحدي -->
+        <div id="gameOverScreen" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6 text-center anim-pop">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full">
+                <div id="finalIcon" class="text-7xl mb-4">🏆</div>
+                <h2 id="finalTitle" class="text-3xl font-extrabold mb-2 text-primary">نهاية اللعبة</h2>
+                <p id="finalSubtitle" class="text-lg text-gray-600 dark:text-gray-300 mb-6">لقد فزت في التحدي!</p>
+                
+                <div class="flex justify-center gap-6 mb-8 text-2xl font-bold">
+                    <div class="text-primary"><span id="finalP1Score">3</span><div class="text-sm font-normal text-gray-500">أنت</div></div>
+                    <div>-</div>
+                    <div class="text-red-500"><span id="finalP2Score">1</span><div class="text-sm font-normal text-gray-500">الخصم</div></div>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <button id="playAgainBtn" class="w-full py-3 bg-secondary hover:bg-green-600 text-white font-bold rounded-xl transition">العب مرة أخرى 🔄</button>
+                    <button id="goMenuBtn" class="w-full py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-bold rounded-xl transition">القائمة الرئيسية 🏠</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /* 
+         * متغيرات الحالة (State) 
+         */
+        const state = {
+            mode: 'pc', // 'pc' | 'friend'
+            difficulty: 'easy', // 'easy' | 'medium' | 'hard'
+            matchType: 'best5', // 'endless' | 'best5'
+            useTimer: false,
+            timerValue: 5,
+            currentTimer: 5,
+            timerInterval: null,
+            isMuted: false,
+            
+            p1Score: 0,
+            p2Score: 0,
+            currentRound: 1,
+            maxRounds: 5, // for best5 mode
+            
+            p1Choice: null,
+            p2Choice: null,
+            turn: 1, // 1 for P1, 2 for P2
+            isAnimating: false,
+
+            // إحصائيات للمحفوظات
+            stats: { wins: 0, losses: 0, ties: 0 },
+            
+            // تاريخ الحركات لمستوى الصعوبة 'صعب'
+            // تتبع ما يلعبه اللاعب بعد كل حركة
+            history: {
+                'rock': { 'rock': 0, 'paper': 0, 'scissors': 0 },
+                'paper': { 'rock': 0, 'paper': 0, 'scissors': 0 },
+                'scissors': { 'rock': 0, 'paper': 0, 'scissors': 0 },
+                'lastMove': null
+            }
+        };
+
+        const choices = ['rock', 'paper', 'scissors'];
+        const emojis = { rock: '✊', paper: '✋', scissors: '✌️' };
+        // مصفوفة لتحديد الفائز: مفتاح يغلب القيمة
+        const beats = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
+        const arabicNames = { rock: 'طوبة', paper: 'ورقة', scissors: 'مقص' };
+
+        /* 
+         * نظام الصوت (Web Audio API) 
+         */
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, duration, type = 'sine') {
+            if (state.isMuted || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                // إضافة غلاف للصوت لتجنب الطقطقة
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.warn("Audio play failed", e); }
+        }
+
+        function sfxWin() {
+            playTone(523.25, 0.1, 'sine'); // C5
+            setTimeout(() => playTone(659.25, 0.3, 'sine'), 100); // E5
+        }
+        function sfxLose() {
+            playTone(300, 0.2, 'sawtooth');
+            setTimeout(() => playTone(200, 0.4, 'sawtooth'), 150);
+        }
+        function sfxTie() {
+            playTone(400, 0.15, 'triangle');
+            setTimeout(() => playTone(400, 0.15, 'triangle'), 200);
+        }
+        function sfxTick() {
+            playTone(800, 0.05, 'square');
+        }
+
+        // Elements Cache
+        const DOM = {
+            themeBtn: document.getElementById('themeBtn'),
+            soundBtn: document.getElementById('soundBtn'),
+            menuScreen: document.getElementById('menuScreen'),
+            gameScreen: document.getElementById('gameScreen'),
+            passDeviceScreen: document.getElementById('passDeviceScreen'),
+            gameOverScreen: document.getElementById('gameOverScreen'),
+            
+            modeBtns: document.querySelectorAll('.mode-select'),
+            matchBtns: document.querySelectorAll('.match-select'),
+            difficultySection: document.getElementById('difficultySection'),
+            difficultySelect: document.getElementById('difficultySelect'),
+            timerToggle: document.getElementById('timerToggle'),
+            startBtn: document.getElementById('startBtn'),
+            
+            p1Hand: document.getElementById('p1Hand'),
+            p2Hand: document.getElementById('p2Hand'),
+            p1Score: document.getElementById('p1Score'),
+            p2Score: document.getElementById('p2Score'),
+            p1Name: document.getElementById('p1Name'),
+            p2Name: document.getElementById('p2Name'),
+            
+            resultMessage: document.getElementById('resultMessage'),
+            roundInfoDisplay: document.getElementById('roundInfoDisplay'),
+            timerDisplay: document.getElementById('timerDisplay'),
+            turnIndicator: document.getElementById('turnIndicator'),
+            choicesContainer: document.getElementById('choicesContainer'),
+            choiceBtns: document.querySelectorAll('.choice-btn'),
+            
+            nextRoundBtn: document.getElementById('nextRoundBtn'),
+            readyP2Btn: document.getElementById('readyP2Btn'),
+            backToMenuBtn: document.getElementById('backToMenuBtn'),
+            playAgainBtn: document.getElementById('playAgainBtn'),
+            goMenuBtn: document.getElementById('goMenuBtn'),
+            
+            statW: document.getElementById('statW'),
+            statL: document.getElementById('statL'),
+            statT: document.getElementById('statT'),
+            resetStatsBtn: document.getElementById('resetStatsBtn')
+        };
+
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                DOM.themeBtn.textContent = '🌙';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                DOM.themeBtn.textContent = '☀️';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        // Sound Toggle
+        function toggleSound() {
+            state.isMuted = !state.isMuted;
+            DOM.soundBtn.textContent = state.isMuted ? '🔇' : '🔊';
+            if (!state.isMuted) initAudio();
+        }
+
+        // Local Storage
+        function loadStats() {
+            try {
+                const saved = localStorage.getItem('rps_stats');
+                if (saved) state.stats = JSON.parse(saved);
+                const theme = localStorage.getItem('theme');
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    DOM.themeBtn.textContent = '☀️';
+                }
+            } catch (e) {}
+            updateStatsUI();
+        }
+
+        function saveStats() {
+            try {
+                localStorage.setItem('rps_stats', JSON.stringify(state.stats));
+            } catch (e) {}
+            updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            DOM.statW.textContent = state.stats.wins;
+            DOM.statL.textContent = state.stats.losses;
+            DOM.statT.textContent = state.stats.ties;
+        }
+
+        // Menu Setup
+        DOM.modeBtns.forEach(btn => btn.addEventListener('click', (e) => {
+            DOM.modeBtns.forEach(b => {
+                b.classList.remove('bg-primary', 'text-white', 'border-primary');
+                b.classList.add('text-gray-600', 'dark:text-gray-300', 'border-gray-300', 'dark:border-gray-600');
+            });
+            const target = e.currentTarget;
+            target.classList.remove('text-gray-600', 'dark:text-gray-300', 'border-gray-300', 'dark:border-gray-600');
+            target.classList.add('bg-primary', 'text-white', 'border-primary');
+            
+            state.mode = target.dataset.mode;
+            DOM.difficultySection.style.display = state.mode === 'pc' ? 'block' : 'none';
+        }));
+
+        DOM.matchBtns.forEach(btn => btn.addEventListener('click', (e) => {
+            DOM.matchBtns.forEach(b => {
+                b.classList.remove('bg-secondary', 'text-white', 'border-secondary');
+                b.classList.add('text-gray-600', 'dark:text-gray-300', 'border-gray-300', 'dark:border-gray-600');
+            });
+            const target = e.currentTarget;
+            target.classList.remove('text-gray-600', 'dark:text-gray-300', 'border-gray-300', 'dark:border-gray-600');
+            target.classList.add('bg-secondary', 'text-white', 'border-secondary');
+            
+            state.matchType = target.dataset.match;
+        }));
+
+        // Timer Logic
+        function startTimer() {
+            if (!state.useTimer) return;
+            state.currentTimer = state.timerValue;
+            DOM.timerDisplay.textContent = state.currentTimer;
+            DOM.timerDisplay.classList.remove('hidden');
+            
+            clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                state.currentTimer--;
+                DOM.timerDisplay.textContent = state.currentTimer;
+                if(state.currentTimer > 0 && state.currentTimer <= 3) sfxTick();
+                
+                if (state.currentTimer <= 0) {
+                    clearInterval(state.timerInterval);
+                    handleTimeOut();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(state.timerInterval);
+            DOM.timerDisplay.classList.add('hidden');
+        }
+
+        function handleTimeOut() {
+            // اختيار عشوائي إجباري عند انتهاء الوقت
+            const randomChoice = choices[Math.floor(Math.random() * 3)];
+            handlePlayerChoice(randomChoice);
+        }
+
+        // Computer AI
+        function getComputerChoice() {
+            const diff = state.difficulty;
+            if (diff === 'easy') {
+                return choices[Math.floor(Math.random() * 3)];
+            } 
+            else if (diff === 'medium') {
+                // 50% عشوائي، 50% يتوقع بناءً على آخر حركة (لو موجودة)
+                if (Math.random() > 0.5 && state.history.lastMove) {
+                    // إذا كان اللاعب لعب 'rock' آخر مرة، الكمبيوتر يلعب 'paper'
+                    return beats[beats[state.history.lastMove]]; // هذه تجلب ما يهزم الحركة الأخيرة
+                }
+                return choices[Math.floor(Math.random() * 3)];
+            } 
+            else if (diff === 'hard') {
+                // تحليل النمط (Markov Chain بسيط)
+                const last = state.history.lastMove;
+                if (last) {
+                    const stats = state.history[last];
+                    let predictedNext = 'rock';
+                    let max = -1;
+                    for (const move of choices) {
+                        if (stats[move] > max) {
+                            max = stats[move];
+                            predictedNext = move;
+                        }
+                    }
+                    // إذا لم يكن هناك بيانات كافية (max === 0)، اختر عشوائياً
+                    if (max === 0) return choices[Math.floor(Math.random() * 3)];
+                    
+                    // إذا توقعنا أن اللاعب سيلعب predictedNext، الكمبيوتر يختار ما يهزمه
+                    for (const move of choices) {
+                        if (beats[move] === predictedNext) return move;
+                    }
+                }
+                return choices[Math.floor(Math.random() * 3)];
+            }
+        }
+
+        function startGame() {
+            initAudio();
+            // قراءة الإعدادات
+            state.difficulty = DOM.difficultySelect.value;
+            state.useTimer = DOM.timerToggle.checked;
+            
+            // إعادة ضبط المتغيرات
+            state.p1Score = 0;
+            state.p2Score = 0;
+            state.currentRound = 1;
+            state.turn = 1;
+            state.p1Choice = null;
+            state.p2Choice = null;
+            
+            // تحديث الواجهة
+            DOM.menuScreen.classList.add('hidden');
+            DOM.gameScreen.classList.remove('hidden');
+            DOM.gameOverScreen.classList.add('hidden');
+            
+            DOM.p1Name.textContent = state.mode === 'friend' ? 'اللاعب الأول' : 'أنت';
+            DOM.p2Name.textContent = state.mode === 'friend' ? 'اللاعب الثاني' : 'الكمبيوتر';
+            
+            updateGameUI();
+            startRound();
+        }
+
+        function startRound() {
+            state.p1Choice = null;
+            state.p2Choice = null;
+            state.isAnimating = false;
+            
+            DOM.p1Hand.textContent = emojis.rock;
+            DOM.p2Hand.textContent = emojis.rock;
+            DOM.resultMessage.style.opacity = '0';
+            
+            enableChoices(true);
+            DOM.nextRoundBtn.classList.add('hidden');
+            
+            if (state.mode === 'friend') {
+                state.turn = 1;
+                DOM.turnIndicator.textContent = 'دور اللاعب الأول: اختر حركتك';
+                DOM.turnIndicator.classList.remove('text-red-500');
+                DOM.turnIndicator.classList.add('text-primary');
+            } else {
+                DOM.turnIndicator.textContent = 'اختر حركتك:';
+            }
+            
+            updateGameUI();
+            startTimer();
+        }
+
+        function handlePlayerChoice(choice) {
+            if (state.isAnimating) return;
+            initAudio();
+
+            if (state.mode === 'pc') {
+                stopTimer();
+                state.p1Choice = choice;
+                state.p2Choice = getComputerChoice();
+                
+                // تحديث التاريخ للكمبيوتر الصعب
+                if (state.history.lastMove) {
+                    state.history[state.history.lastMove][choice]++;
+                }
+                state.history.lastMove = choice;
+
+                playAnimationAndResolve();
+            } else {
+                // ضد صديق
+                if (state.turn === 1) {
+                    stopTimer();
+                    state.p1Choice = choice;
+                    state.turn = 2;
+                    // إظهار شاشة التمرير
+                    DOM.passDeviceScreen.classList.remove('hidden');
+                } else {
+                    stopTimer();
+                    state.p2Choice = choice;
+                    playAnimationAndResolve();
+                }
+            }
+        }
+
+        // زر جاهزية اللاعب الثاني
+        DOM.readyP2Btn.addEventListener('click', () => {
+            DOM.passDeviceScreen.classList.add('hidden');
+            DOM.turnIndicator.textContent = 'دور اللاعب الثاني: اختر حركتك (بسرية)';
+            DOM.turnIndicator.classList.remove('text-primary');
+            DOM.turnIndicator.classList.add('text-red-500');
+            startTimer();
+        });
+
+        function playAnimationAndResolve() {
+            state.isAnimating = true;
+            enableChoices(false);
+            
+            // تجهيز الأيدي (الكل طوبة استعداداً للعد)
+            DOM.p1Hand.textContent = emojis.rock;
+            DOM.p2Hand.textContent = emojis.rock;
+            
+            // إضافة كلاسات الاهتزاز
+            DOM.p1Hand.classList.add('anim-shake-left');
+            DOM.p2Hand.classList.add('anim-shake-right');
+            
+            DOM.resultMessage.textContent = "طوبة.. ورقة.. مقص!";
+            DOM.resultMessage.style.opacity = '1';
+            DOM.resultMessage.className = "h-12 flex items-center justify-center text-xl md:text-2xl font-bold text-gray-500 dark:text-gray-400 text-center transition-opacity duration-300";
+
+            // بعد انتهاء الأنيميشن (1 ثانية)
+            setTimeout(() => {
+                DOM.p1Hand.classList.remove('anim-shake-left');
+                DOM.p2Hand.classList.remove('anim-shake-right');
+                
+                // إظهار الاختيارات الحقيقية
+                DOM.p1Hand.textContent = emojis[state.p1Choice];
+                DOM.p2Hand.textContent = emojis[state.p2Choice];
+                
+                resolveRound();
+            }, 1000);
+        }
+
+        function resolveRound() {
+            let resultText = "";
+            let resultClass = "";
+            
+            if (state.p1Choice === state.p2Choice) {
+                // تعادل
+                resultText = "تعادل! 🤝";
+                resultClass = "text-yellow-500";
+                sfxTie();
+                if(state.mode === 'pc') { state.stats.ties++; saveStats(); }
+            } else if (beats[state.p1Choice] === state.p2Choice) {
+                // اللاعب الأول فاز
+                state.p1Score++;
+                if (state.mode === 'pc') {
+                    resultText = "أحسنت! فزت 🎉";
+                    resultClass = "text-green-500";
+                    state.stats.wins++; saveStats();
+                    sfxWin();
+                } else {
+                    resultText = "اللاعب الأول فاز! 🎉";
+                    resultClass = "text-primary";
+                    sfxWin();
+                }
+            } else {
+                // اللاعب الثاني / الكمبيوتر فاز
+                state.p2Score++;
+                if (state.mode === 'pc') {
+                    resultText = "خسرت! حاول مجدداً 😢";
+                    resultClass = "text-red-500";
+                    state.stats.losses++; saveStats();
+                    sfxLose();
+                } else {
+                    resultText = "اللاعب الثاني فاز! 🎉";
+                    resultClass = "text-red-500";
+                    sfxWin();
+                }
+            }
+            
+            DOM.p1Score.textContent = state.p1Score;
+            DOM.p2Score.textContent = state.p2Score;
+            
+            // تأثير حركة على النتيجة
+            DOM.resultMessage.textContent = resultText;
+            DOM.resultMessage.className = `h-12 flex items-center justify-center text-2xl md:text-3xl font-extrabold ${resultClass} text-center anim-pop`;
+            
+            // فحص نهاية التحدي
+            if (state.matchType === 'best5' && state.currentRound >= state.maxRounds) {
+                setTimeout(endMatch, 1500);
+            } else {
+                DOM.nextRoundBtn.classList.remove('hidden');
+                DOM.turnIndicator.textContent = "النتيجة:";
+            }
+        }
+
+        function nextRound() {
+            state.currentRound++;
+            startRound();
+        }
+
+        function endMatch() {
+            DOM.gameOverScreen.classList.remove('hidden');
+            
+            DOM.document?.getElementById('finalP1Score')?.remove(); // cleanup potential duplicate IDs mentally, using simple references
+            document.getElementById('finalP1Score').textContent = state.p1Score;
+            document.getElementById('finalP2Score').textContent = state.p2Score;
+            
+            const title = document.getElementById('finalTitle');
+            const sub = document.getElementById('finalSubtitle');
+            const icon = document.getElementById('finalIcon');
+            
+            if (state.p1Score > state.p2Score) {
+                title.textContent = state.mode === 'pc' ? "لقد فزت!" : "اللاعب الأول فاز!";
+                title.className = "text-3xl font-extrabold mb-2 text-green-500";
+                sub.textContent = "أداء رائع ومذهل! 🌟";
+                icon.textContent = "🏆";
+                sfxWin();
+            } else if (state.p2Score > state.p1Score) {
+                title.textContent = state.mode === 'pc' ? "لقد خسرت!" : "اللاعب الثاني فاز!";
+                title.className = "text-3xl font-extrabold mb-2 text-red-500";
+                sub.textContent = state.mode === 'pc' ? "حظاً أوفر في المرة القادمة" : "أداء رائع! 🌟";
+                icon.textContent = state.mode === 'pc' ? "💔" : "🏆";
+                if(state.mode === 'pc') sfxLose(); else sfxWin();
+            } else {
+                title.textContent = "النتيجة تعادل!";
+                title.className = "text-3xl font-extrabold mb-2 text-yellow-500";
+                sub.textContent = "معركة متكافئة جداً! ⚖️";
+                icon.textContent = "🤝";
+                sfxTie();
+            }
+        }
+
+        function updateGameUI() {
+            DOM.roundInfoDisplay.textContent = state.matchType === 'endless' 
+                ? `جولة: ${state.currentRound}` 
+                : `جولة: ${state.currentRound} من ${state.maxRounds}`;
+        }
+
+        function enableChoices(enable) {
+            DOM.choiceBtns.forEach(btn => {
+                btn.disabled = !enable;
+                if(enable) {
+                    btn.classList.remove('disabled-btn');
+                } else {
+                    btn.classList.add('disabled-btn');
+                }
+            });
+        }
+
+        function resetToMenu() {
+            stopTimer();
+            DOM.gameScreen.classList.add('hidden');
+            DOM.gameOverScreen.classList.add('hidden');
+            DOM.menuScreen.classList.remove('hidden');
+        }
+
+        // Event Listeners
+        DOM.themeBtn.addEventListener('click', toggleTheme);
+        DOM.soundBtn.addEventListener('click', toggleSound);
+        
+        DOM.startBtn.addEventListener('click', startGame);
+        DOM.backToMenuBtn.addEventListener('click', resetToMenu);
+        DOM.goMenuBtn.addEventListener('click', resetToMenu);
+        DOM.playAgainBtn.addEventListener('click', () => {
+            DOM.gameOverScreen.classList.add('hidden');
+            startGame();
+        });
+        
+        DOM.nextRoundBtn.addEventListener('click', nextRound);
+
+        DOM.choiceBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const choice = e.currentTarget.dataset.choice;
+                handlePlayerChoice(choice);
+            });
+        });
+
+        DOM.resetStatsBtn.addEventListener('click', () => {
+            state.stats = { wins: 0, losses: 0, ties: 0 };
+            saveStats();
+        });
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+        });
+
+    </script>
+</body>
+</html>
